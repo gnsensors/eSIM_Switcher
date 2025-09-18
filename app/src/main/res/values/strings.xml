@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">eSIM Switcher</string>
+    <string name="available_profiles">Available eSIM Profiles</string>
+    <string name="active_profile">Active Profile</string>
+    <string name="switch_profile">Switch Profile</string>
+    <string name="no_profiles_found">No eSIM profiles found</string>
+    <string name="profile_switched">Profile switched successfully</string>
+    <string name="switch_failed">Failed to switch profile</string>
+    <string name="permission_required">Permission required to manage eSIM profiles</string>
+    <string name="switch_confirmation">Switch to this profile?</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+</resources>
