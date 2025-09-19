@@ -119,13 +119,29 @@ class MainActivity : AppCompatActivity() {
                                 "3. Tap '${profile.displayName}'\n" +
                                 "4. Turn on 'Use SIM'\n\n" +
                                 "This limitation is due to Android security restrictions.")
-                        .setPositiveButton("Open Settings") { _, _ ->
+                        .setPositiveButton("Open SIM Settings") { _, _ ->
                             try {
+                                // Try to open the SIMs page directly (Android 10+)
                                 val intent = android.content.Intent(android.provider.Settings.ACTION_NETWORK_OPERATOR_SETTINGS)
+                                intent.flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
                                 startActivity(intent)
                             } catch (e: Exception) {
-                                val intent = android.content.Intent(android.provider.Settings.ACTION_SETTINGS)
-                                startActivity(intent)
+                                try {
+                                    // Fallback to mobile network settings
+                                    val intent = android.content.Intent("android.settings.WIRELESS_SETTINGS")
+                                    intent.flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                                    startActivity(intent)
+                                } catch (e2: Exception) {
+                                    try {
+                                        // Final fallback to main network settings
+                                        val intent = android.content.Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS)
+                                        startActivity(intent)
+                                    } catch (e3: Exception) {
+                                        // Last resort - main settings
+                                        val intent = android.content.Intent(android.provider.Settings.ACTION_SETTINGS)
+                                        startActivity(intent)
+                                    }
+                                }
                             }
                         }
                         .setNegativeButton("Cancel", null)
