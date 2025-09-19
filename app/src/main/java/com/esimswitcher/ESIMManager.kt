@@ -159,20 +159,35 @@ class ESIMManager {
             // For Android 10+, use the modern approach
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 try {
-                    // Method 1: Try setPreferredDataSubscriptionId (modern approach)
-                    Log.d(TAG, "Trying setPreferredDataSubscriptionId for profile ${profile.subscriptionId}")
-                    subscriptionManager.setPreferredDataSubscriptionId(
-                        profile.subscriptionId,
-                        false,
-                        context.mainExecutor
-                    ) { result ->
-                        Log.d(TAG, "setPreferredDataSubscriptionId result: $result")
-                        if (result == SubscriptionManager.SET_SUBSCRIPTION_ID_SUCCESS) {
-                            callback(true)
-                        } else {
-                            Log.w(TAG, "Failed to set preferred data subscription, trying alternative method")
-                            tryAlternativeSwitchMethod(context, subscriptionManager, profile, callback)
+                    // Method 1: Try setPreferredDataSubscriptionId (Android R/API 30+)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        Log.d(TAG, "Trying setPreferredDataSubscriptionId for profile ${profile.subscriptionId}")
+                        val method = subscriptionManager.javaClass.getDeclaredMethod(
+                            "setPreferredDataSubscriptionId",
+                            Int::class.java,
+                            Boolean::class.java,
+                            java.util.concurrent.Executor::class.java,
+                            java.util.function.Consumer::class.java
+                        )
+                        method.isAccessible = true
+                        method.invoke(
+                            subscriptionManager,
+                            profile.subscriptionId,
+                            false,
+                            context.mainExecutor
+                        ) { result: Int ->
+                            Log.d(TAG, "setPreferredDataSubscriptionId result: $result")
+                            // Success is typically 0, but let's also verify by checking active subscription
+                            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                                val currentActiveId = getActiveSubscriptionId(subscriptionManager)
+                                val success = currentActiveId == profile.subscriptionId
+                                Log.d(TAG, "Modern API switch verification: currentActive=$currentActiveId, target=${profile.subscriptionId}, success=$success")
+                                callback(success)
+                            }, 1500)
                         }
+                    } else {
+                        Log.d(TAG, "setPreferredDataSubscriptionId not available on this Android version, trying alternative")
+                        tryAlternativeSwitchMethod(context, subscriptionManager, profile, callback)
                     }
                 } catch (e: Exception) {
                     Log.w(TAG, "setPreferredDataSubscriptionId failed: ${e.message}")
@@ -230,25 +245,75 @@ class ESIMManager {
         try {
             Log.d(TAG, "Trying legacy switch method for profile ${profile.subscriptionId}")
             
-            // For older versions, we can try to set the default subscription
+            // For older versions, we can try to set the default subscription using reflection
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                SubscriptionManager.setDefaultDataSubId(profile.subscriptionId)
-                SubscriptionManager.setDefaultSmsSubId(profile.subscriptionId)
-                SubscriptionManager.setDefaultVoiceSubId(profile.subscriptionId)
-                
-                // Check if it worked
-                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                    val currentActiveId = getActiveSubscriptionId(subscriptionManager)
-                    val success = currentActiveId == profile.subscriptionId
-                    Log.d(TAG, "Legacy switch result: currentActive=$currentActiveId, target=${profile.subscriptionId}, success=$success")
-                    callback(success)
-                }, 1000)
+                try {
+                    // Use reflection to access the hidden setDefaultDataSubId methods
+                    val setDefaultDataMethod = SubscriptionManager::class.java.getDeclaredMethod("setDefaultDataSubId", Int::class.java)
+                    setDefaultDataMethod.isAccessible = true
+                    setDefaultDataMethod.invoke(null, profile.subscriptionId)
+                    
+                    val setDefaultSmsMethod = SubscriptionManager::class.java.getDeclaredMethod("setDefaultSmsSubId", Int::class.java)
+                    setDefaultSmsMethod.isAccessible = true
+                    setDefaultSmsMethod.invoke(null, profile.subscriptionId)
+                    
+                    val setDefaultVoiceMethod = SubscriptionManager::class.java.getDeclaredMethod("setDefaultVoiceSubId", Int::class.java)
+                    setDefaultVoiceMethod.isAccessible = true
+                    setDefaultVoiceMethod.invoke(null, profile.subscriptionId)
+                    
+                    Log.d(TAG, "Called legacy setDefault methods via reflection")
+                    
+                    // Check if it worked
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        val currentActiveId = getActiveSubscriptionId(subscriptionManager)
+                        val success = currentActiveId == profile.subscriptionId
+                        Log.d(TAG, "Legacy switch result: currentActive=$currentActiveId, target=${profile.subscriptionId}, success=$success")
+                        callback(success)
+                    }, 1000)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Legacy reflection methods failed: ${e.message}")
+                    // Final fallback - just try to enable the subscription
+                    trySimpleEnableMethod(context, subscriptionManager, profile, callback)
+                }
             } else {
                 Log.w(TAG, "No eSIM switching support for this Android version")
                 callback(false)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Legacy switch method failed: ${e.message}", e)
+            callback(false)
+        }
+    }
+    
+    private fun trySimpleEnableMethod(context: Context, subscriptionManager: SubscriptionManager, profile: ESIMProfile, callback: (Boolean) -> Unit) {
+        try {
+            Log.d(TAG, "Trying simple enable method for profile ${profile.subscriptionId}")
+            
+            // Last resort: try to use any available method to activate the subscription
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                try {
+                    val enableMethod = subscriptionManager.javaClass.getDeclaredMethod("setSubscriptionEnabled", Int::class.java, Boolean::class.java)
+                    enableMethod.isAccessible = true
+                    enableMethod.invoke(subscriptionManager, profile.subscriptionId, true)
+                    Log.d(TAG, "Called setSubscriptionEnabled via reflection")
+                    
+                    // Check if it worked
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        val currentActiveId = getActiveSubscriptionId(subscriptionManager)
+                        val success = currentActiveId == profile.subscriptionId
+                        Log.d(TAG, "Simple enable result: currentActive=$currentActiveId, target=${profile.subscriptionId}, success=$success")
+                        callback(success)
+                    }, 1500)
+                } catch (e: Exception) {
+                    Log.w(TAG, "setSubscriptionEnabled failed: ${e.message}")
+                    callback(false)
+                }
+            } else {
+                Log.w(TAG, "No enable method available for this Android version")
+                callback(false)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Simple enable method failed: ${e.message}", e)
             callback(false)
         }
     }
