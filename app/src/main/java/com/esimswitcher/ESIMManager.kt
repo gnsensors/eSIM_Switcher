@@ -151,38 +151,104 @@ class ESIMManager {
     }
     
     fun switchToProfile(context: Context, profile: ESIMProfile, callback: (Boolean) -> Unit) {
+        Log.d(TAG, "Attempting to switch to profile: ${profile.displayName} (ID: ${profile.subscriptionId})")
+        
         try {
+            val subscriptionManager = context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as SubscriptionManager
+            
+            // For Android 10+, use the modern approach
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val subscriptionManager = context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as SubscriptionManager
-                
-                // Create a PendingIntent for the callback
-                val intent = Intent()
-                val pendingIntent = PendingIntent.getBroadcast(
-                    context,
-                    0,
-                    intent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                
                 try {
-                    subscriptionManager.switchToSubscription(
+                    // Method 1: Try setPreferredDataSubscriptionId (modern approach)
+                    Log.d(TAG, "Trying setPreferredDataSubscriptionId for profile ${profile.subscriptionId}")
+                    subscriptionManager.setPreferredDataSubscriptionId(
                         profile.subscriptionId,
-                        pendingIntent
-                    )
-                    callback(true)
+                        false,
+                        context.mainExecutor
+                    ) { result ->
+                        Log.d(TAG, "setPreferredDataSubscriptionId result: $result")
+                        if (result == SubscriptionManager.SET_SUBSCRIPTION_ID_SUCCESS) {
+                            callback(true)
+                        } else {
+                            Log.w(TAG, "Failed to set preferred data subscription, trying alternative method")
+                            tryAlternativeSwitchMethod(context, subscriptionManager, profile, callback)
+                        }
+                    }
                 } catch (e: Exception) {
-                    Log.e(TAG, "Failed to switch subscription", e)
-                    callback(false)
+                    Log.w(TAG, "setPreferredDataSubscriptionId failed: ${e.message}")
+                    tryAlternativeSwitchMethod(context, subscriptionManager, profile, callback)
                 }
             } else {
-                Log.w(TAG, "eSIM switching not supported on this Android version")
-                callback(false)
+                // For older Android versions
+                Log.w(TAG, "eSIM switching not fully supported on Android versions below 10")
+                tryLegacySwitchMethod(context, subscriptionManager, profile, callback)
             }
         } catch (e: SecurityException) {
-            Log.e(TAG, "Permission denied while switching eSIM profile", e)
+            Log.e(TAG, "Permission denied while switching eSIM profile: ${e.message}", e)
             callback(false)
         } catch (e: Exception) {
-            Log.e(TAG, "Error switching eSIM profile", e)
+            Log.e(TAG, "Error switching eSIM profile: ${e.message}", e)
+            callback(false)
+        }
+    }
+    
+    private fun tryAlternativeSwitchMethod(context: Context, subscriptionManager: SubscriptionManager, profile: ESIMProfile, callback: (Boolean) -> Unit) {
+        try {
+            Log.d(TAG, "Trying alternative switch method for profile ${profile.subscriptionId}")
+            
+            // Create a proper broadcast intent for the result
+            val intent = Intent("com.esimswitcher.ESIM_SWITCH_RESULT")
+            intent.putExtra("subscription_id", profile.subscriptionId)
+            
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                profile.subscriptionId,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            
+            // Use the deprecated but sometimes working switchToSubscription
+            @Suppress("DEPRECATION")
+            subscriptionManager.switchToSubscription(profile.subscriptionId, pendingIntent)
+            
+            // Since we can't easily track the broadcast result here, 
+            // we'll check the subscription status after a delay
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                val currentActiveId = getActiveSubscriptionId(subscriptionManager)
+                val success = currentActiveId == profile.subscriptionId
+                Log.d(TAG, "Switch result check: currentActive=$currentActiveId, target=${profile.subscriptionId}, success=$success")
+                callback(success)
+            }, 2000) // Wait 2 seconds for the switch to complete
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Alternative switch method failed: ${e.message}", e)
+            callback(false)
+        }
+    }
+    
+    private fun tryLegacySwitchMethod(context: Context, subscriptionManager: SubscriptionManager, profile: ESIMProfile, callback: (Boolean) -> Unit) {
+        try {
+            Log.d(TAG, "Trying legacy switch method for profile ${profile.subscriptionId}")
+            
+            // For older versions, we can try to set the default subscription
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                SubscriptionManager.setDefaultDataSubId(profile.subscriptionId)
+                SubscriptionManager.setDefaultSmsSubId(profile.subscriptionId)
+                SubscriptionManager.setDefaultVoiceSubId(profile.subscriptionId)
+                
+                // Check if it worked
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    val currentActiveId = getActiveSubscriptionId(subscriptionManager)
+                    val success = currentActiveId == profile.subscriptionId
+                    Log.d(TAG, "Legacy switch result: currentActive=$currentActiveId, target=${profile.subscriptionId}, success=$success")
+                    callback(success)
+                }, 1000)
+            } else {
+                Log.w(TAG, "No eSIM switching support for this Android version")
+                callback(false)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Legacy switch method failed: ${e.message}", e)
             callback(false)
         }
     }
