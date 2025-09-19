@@ -31,26 +31,79 @@ class ESIMManager {
                 try {
                     // First get active subscriptions
                     val activeSubscriptions = subscriptionManager.activeSubscriptionInfoList ?: emptyList<SubscriptionInfo>()
+                    Log.d(TAG, "Found ${activeSubscriptions.size} active subscriptions")
                     allSubscriptionInfos.addAll(activeSubscriptions)
                     
-                    // For Android Q+, try to get accessible subscriptions using reflection as a fallback
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    // Log all active subscriptions
+                    activeSubscriptions.forEachIndexed { index, sub ->
+                        Log.d(TAG, "Active subscription $index: ID=${sub.subscriptionId}, isEmbedded=${sub.isEmbedded}, carrier=${sub.carrierName}, display=${sub.displayName}")
+                    }
+                    
+                    // Try additional methods to get all subscriptions including inactive ones
+                    try {
+                        // Method 1: Try getAvailableSubscriptionInfoList (Android P+)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                            try {
+                                val availableMethod = subscriptionManager.javaClass.getDeclaredMethod("getAvailableSubscriptionInfoList")
+                                availableMethod.isAccessible = true
+                                @Suppress("UNCHECKED_CAST")
+                                val availableSubscriptions = availableMethod.invoke(subscriptionManager) as? List<SubscriptionInfo>
+                                Log.d(TAG, "Found ${availableSubscriptions?.size ?: 0} available subscriptions via getAvailableSubscriptionInfoList")
+                                availableSubscriptions?.let { subs ->
+                                    subs.forEachIndexed { index, sub ->
+                                        Log.d(TAG, "Available subscription $index: ID=${sub.subscriptionId}, isEmbedded=${sub.isEmbedded}, carrier=${sub.carrierName}")
+                                        if (allSubscriptionInfos.none { it.subscriptionId == sub.subscriptionId }) {
+                                            allSubscriptionInfos.add(sub)
+                                        }
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Could not access getAvailableSubscriptionInfoList: ${e.message}")
+                            }
+                        }
+                        
+                        // Method 2: Try getAccessibleSubscriptionInfoList (Android Q+)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            try {
+                                val accessibleMethod = subscriptionManager.javaClass.getDeclaredMethod("getAccessibleSubscriptionInfoList")
+                                accessibleMethod.isAccessible = true
+                                @Suppress("UNCHECKED_CAST")
+                                val accessibleSubscriptions = accessibleMethod.invoke(subscriptionManager) as? List<SubscriptionInfo>
+                                Log.d(TAG, "Found ${accessibleSubscriptions?.size ?: 0} accessible subscriptions via getAccessibleSubscriptionInfoList")
+                                accessibleSubscriptions?.let { subs ->
+                                    subs.forEachIndexed { index, sub ->
+                                        Log.d(TAG, "Accessible subscription $index: ID=${sub.subscriptionId}, isEmbedded=${sub.isEmbedded}, carrier=${sub.carrierName}")
+                                        if (allSubscriptionInfos.none { it.subscriptionId == sub.subscriptionId }) {
+                                            allSubscriptionInfos.add(sub)
+                                        }
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Could not access getAccessibleSubscriptionInfoList: ${e.message}")
+                            }
+                        }
+                        
+                        // Method 3: Try getAllSubscriptionInfoList (hidden API)
                         try {
-                            val method = subscriptionManager.javaClass.getDeclaredMethod("getAccessibleSubscriptionInfoList")
-                            method.isAccessible = true
+                            val allMethod = subscriptionManager.javaClass.getDeclaredMethod("getAllSubscriptionInfoList")
+                            allMethod.isAccessible = true
                             @Suppress("UNCHECKED_CAST")
-                            val accessibleSubscriptions = method.invoke(subscriptionManager) as? List<SubscriptionInfo>
-                            accessibleSubscriptions?.let { subs ->
-                                // Add any subscriptions not already in the list
-                                subs.forEach { sub ->
+                            val allSubscriptions = allMethod.invoke(subscriptionManager) as? List<SubscriptionInfo>
+                            Log.d(TAG, "Found ${allSubscriptions?.size ?: 0} total subscriptions via getAllSubscriptionInfoList")
+                            allSubscriptions?.let { subs ->
+                                subs.forEachIndexed { index, sub ->
+                                    Log.d(TAG, "All subscription $index: ID=${sub.subscriptionId}, isEmbedded=${sub.isEmbedded}, carrier=${sub.carrierName}")
                                     if (allSubscriptionInfos.none { it.subscriptionId == sub.subscriptionId }) {
                                         allSubscriptionInfos.add(sub)
                                     }
                                 }
                             }
                         } catch (e: Exception) {
-                            Log.d(TAG, "Could not access getAccessibleSubscriptionInfoList", e)
+                            Log.w(TAG, "Could not access getAllSubscriptionInfoList: ${e.message}")
                         }
+                        
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Error trying additional subscription methods: ${e.message}")
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error getting subscription info lists", e)
@@ -58,7 +111,9 @@ class ESIMManager {
                 
                 val activeSubscriptionId = getActiveSubscriptionId(subscriptionManager)
                 
+                Log.d(TAG, "Processing ${allSubscriptionInfos.size} total subscriptions for eSIM profiles")
                 for (subscriptionInfo in allSubscriptionInfos) {
+                    Log.d(TAG, "Checking subscription ID=${subscriptionInfo.subscriptionId}, isEmbedded=${subscriptionInfo.isEmbedded}")
                     if (subscriptionInfo.isEmbedded) {
                         val profile = ESIMProfile(
                             subscriptionId = subscriptionInfo.subscriptionId,
@@ -68,9 +123,12 @@ class ESIMManager {
                             isActive = subscriptionInfo.subscriptionId == activeSubscriptionId,
                             isEmbedded = true
                         )
+                        Log.d(TAG, "Created eSIM profile: ${profile.displayName} (${profile.carrierName}) - Active: ${profile.isActive}")
                         profiles.add(profile)
                     }
                 }
+                
+                Log.d(TAG, "Returning ${profiles.size} eSIM profiles total")
             }
         } catch (e: SecurityException) {
             Log.e(TAG, "Permission denied while accessing subscription info", e)
