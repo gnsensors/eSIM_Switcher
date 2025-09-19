@@ -170,12 +170,7 @@ class ESIMManager {
                             java.util.function.Consumer::class.java
                         )
                         method.isAccessible = true
-                        method.invoke(
-                            subscriptionManager,
-                            profile.subscriptionId,
-                            false,
-                            context.mainExecutor
-                        ) { result: Int ->
+                        val consumer = java.util.function.Consumer<Int> { result ->
                             Log.d(TAG, "setPreferredDataSubscriptionId result: $result")
                             // Success is typically 0, but let's also verify by checking active subscription
                             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
@@ -185,6 +180,14 @@ class ESIMManager {
                                 callback(success)
                             }, 1500)
                         }
+                        
+                        method.invoke(
+                            subscriptionManager,
+                            profile.subscriptionId,
+                            false,
+                            context.mainExecutor,
+                            consumer
+                        )
                     } else {
                         Log.d(TAG, "setPreferredDataSubscriptionId not available on this Android version, trying alternative")
                         tryAlternativeSwitchMethod(context, subscriptionManager, profile, callback)
