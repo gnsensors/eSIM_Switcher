@@ -1,0 +1,22 @@
+[
+    {
+        "merged": "com.esimswitcher.app-debug-35:/layout_activity_main.xml.flat",
+        "source": "com.esimswitcher.app-main-37:/layout/activity_main.xml"
+    },
+    {
+        "merged": "com.esimswitcher.app-debug-35:/drawable_ic_launcher.xml.flat",
+        "source": "com.esimswitcher.app-main-37:/drawable/ic_launcher.xml"
+    },
+    {
+        "merged": "com.esimswitcher.app-debug-35:/xml_backup_rules.xml.flat",
+        "source": "com.esimswitcher.app-main-37:/xml/backup_rules.xml"
+    },
+    {
+        "merged": "com.esimswitcher.app-debug-35:/xml_data_extraction_rules.xml.flat",
+        "source": "com.esimswitcher.app-main-37:/xml/data_extraction_rules.xml"
+    },
+    {
+        "merged": "com.esimswitcher.app-debug-35:/layout_item_esim_profile.xml.flat",
+        "source": "com.esimswitcher.app-main-37:/layout/item_esim_profile.xml"
+    }
+]

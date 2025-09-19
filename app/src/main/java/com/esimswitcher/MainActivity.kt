@@ -21,7 +21,8 @@ class MainActivity : AppCompatActivity() {
         private const val PERMISSION_REQUEST_CODE = 1001
         private val REQUIRED_PERMISSIONS = arrayOf(
             Manifest.permission.READ_PHONE_STATE,
-            Manifest.permission.MODIFY_PHONE_STATE
+            Manifest.permission.MODIFY_PHONE_STATE,
+            Manifest.permission.READ_PHONE_NUMBERS
         )
     }
     

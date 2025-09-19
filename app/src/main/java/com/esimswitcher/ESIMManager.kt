@@ -24,10 +24,41 @@ class ESIMManager {
                 val subscriptionManager = context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as SubscriptionManager
                 val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
                 
-                val subscriptionInfos = subscriptionManager.activeSubscriptionInfoList ?: emptyList<SubscriptionInfo>()
+                // Get all subscriptions (both active and inactive)
+                val allSubscriptionInfos = mutableListOf<SubscriptionInfo>()
+                
+                // Try to get all subscription info including inactive ones
+                try {
+                    // First get active subscriptions
+                    val activeSubscriptions = subscriptionManager.activeSubscriptionInfoList ?: emptyList<SubscriptionInfo>()
+                    allSubscriptionInfos.addAll(activeSubscriptions)
+                    
+                    // For Android Q+, try to get accessible subscriptions using reflection as a fallback
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        try {
+                            val method = subscriptionManager.javaClass.getDeclaredMethod("getAccessibleSubscriptionInfoList")
+                            method.isAccessible = true
+                            @Suppress("UNCHECKED_CAST")
+                            val accessibleSubscriptions = method.invoke(subscriptionManager) as? List<SubscriptionInfo>
+                            accessibleSubscriptions?.let { subs ->
+                                // Add any subscriptions not already in the list
+                                subs.forEach { sub ->
+                                    if (allSubscriptionInfos.none { it.subscriptionId == sub.subscriptionId }) {
+                                        allSubscriptionInfos.add(sub)
+                                    }
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.d(TAG, "Could not access getAccessibleSubscriptionInfoList", e)
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error getting subscription info lists", e)
+                }
+                
                 val activeSubscriptionId = getActiveSubscriptionId(subscriptionManager)
                 
-                for (subscriptionInfo in subscriptionInfos) {
+                for (subscriptionInfo in allSubscriptionInfos) {
                     if (subscriptionInfo.isEmbedded) {
                         val profile = ESIMProfile(
                             subscriptionId = subscriptionInfo.subscriptionId,
