@@ -214,32 +214,110 @@ class ESIMManager {
         try {
             Log.d(TAG, "Trying alternative switch method for profile ${profile.subscriptionId}")
             
-            // Create a proper broadcast intent for the result
-            val intent = Intent("com.esimswitcher.ESIM_SWITCH_RESULT")
-            intent.putExtra("subscription_id", profile.subscriptionId)
+            // Check if the profile is actually enabled/available for switching
+            val allSubs = subscriptionManager.activeSubscriptionInfoList ?: emptyList()
+            val targetSub = allSubs.find { it.subscriptionId == profile.subscriptionId }
             
-            val pendingIntent = PendingIntent.getBroadcast(
-                context,
-                profile.subscriptionId,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
+            if (targetSub == null) {
+                Log.w(TAG, "Target subscription ${profile.subscriptionId} not found in active list - may be disabled")
+                // Try to enable it first
+                tryEnableSubscription(context, subscriptionManager, profile, callback)
+                return
+            }
             
-            // Use the deprecated but sometimes working switchToSubscription
-            @Suppress("DEPRECATION")
-            subscriptionManager.switchToSubscription(profile.subscriptionId, pendingIntent)
+            Log.d(TAG, "Target subscription found: ${targetSub.displayName}, simSlotIndex=${targetSub.simSlotIndex}")
             
-            // Since we can't easily track the broadcast result here, 
-            // we'll check the subscription status after a delay
+            // Method 1: Try direct switchToSubscription with system intent
+            try {
+                val intent = Intent("android.intent.action.SIM_STATE_CHANGED")
+                intent.putExtra("subscription", profile.subscriptionId)
+                
+                val pendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    profile.subscriptionId,
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                
+                @Suppress("DEPRECATION")
+                subscriptionManager.switchToSubscription(profile.subscriptionId, pendingIntent)
+                Log.d(TAG, "Called switchToSubscription with system intent")
+                
+            } catch (e: Exception) {
+                Log.w(TAG, "switchToSubscription with system intent failed: ${e.message}")
+            }
+            
+            // Method 2: Try to set as preferred data subscription directly
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    val setDataMethod = subscriptionManager.javaClass.getDeclaredMethod("setDefaultDataSubId", Int::class.java)
+                    setDataMethod.isAccessible = true
+                    setDataMethod.invoke(null, profile.subscriptionId)
+                    Log.d(TAG, "Called setDefaultDataSubId directly")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "setDefaultDataSubId failed: ${e.message}")
+            }
+            
+            // Check result after delay
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                 val currentActiveId = getActiveSubscriptionId(subscriptionManager)
                 val success = currentActiveId == profile.subscriptionId
-                Log.d(TAG, "Switch result check: currentActive=$currentActiveId, target=${profile.subscriptionId}, success=$success")
-                callback(success)
-            }, 2000) // Wait 2 seconds for the switch to complete
+                Log.d(TAG, "Alternative switch result: currentActive=$currentActiveId, target=${profile.subscriptionId}, success=$success")
+                
+                if (!success) {
+                    Log.w(TAG, "Alternative switch failed, trying to guide user to manual switch")
+                    // If automatic switching fails, we might need to show user instructions
+                    // For now, let's try one more method
+                    tryEnableSubscription(context, subscriptionManager, profile, callback)
+                } else {
+                    callback(true)
+                }
+            }, 3000) // Wait 3 seconds for the switch to complete
             
         } catch (e: Exception) {
             Log.e(TAG, "Alternative switch method failed: ${e.message}", e)
+            tryEnableSubscription(context, subscriptionManager, profile, callback)
+        }
+    }
+    
+    private fun tryEnableSubscription(context: Context, subscriptionManager: SubscriptionManager, profile: ESIMProfile, callback: (Boolean) -> Unit) {
+        try {
+            Log.d(TAG, "Trying to enable subscription ${profile.subscriptionId}")
+            
+            // Try multiple enable methods
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                try {
+                    // Method 1: setSubscriptionEnabled
+                    val enableMethod = subscriptionManager.javaClass.getDeclaredMethod("setSubscriptionEnabled", Int::class.java, Boolean::class.java)
+                    enableMethod.isAccessible = true
+                    enableMethod.invoke(subscriptionManager, profile.subscriptionId, true)
+                    Log.d(TAG, "Called setSubscriptionEnabled(${profile.subscriptionId}, true)")
+                } catch (e: Exception) {
+                    Log.w(TAG, "setSubscriptionEnabled failed: ${e.message}")
+                }
+                
+                try {
+                    // Method 2: setUiccApplicationsEnabled  
+                    val uiccMethod = subscriptionManager.javaClass.getDeclaredMethod("setUiccApplicationsEnabled", Int::class.java, Boolean::class.java)
+                    uiccMethod.isAccessible = true
+                    uiccMethod.invoke(subscriptionManager, profile.subscriptionId, true)
+                    Log.d(TAG, "Called setUiccApplicationsEnabled(${profile.subscriptionId}, true)")
+                } catch (e: Exception) {
+                    Log.w(TAG, "setUiccApplicationsEnabled failed: ${e.message}")
+                }
+            }
+            
+            // Check if enabling worked and subscription became active
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                val currentActiveId = getActiveSubscriptionId(subscriptionManager)
+                val success = currentActiveId == profile.subscriptionId
+                Log.d(TAG, "Enable subscription result: currentActive=$currentActiveId, target=${profile.subscriptionId}, success=$success")
+                callback(success)
+            }, 4000) // Wait 4 seconds for enable + switch to complete
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Enable subscription failed: ${e.message}", e)
             callback(false)
         }
     }
