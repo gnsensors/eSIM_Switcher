@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<incidents format="6" by="lint 8.1.2" type="conditional_incidents">
+
+    <incident
+        id="ObsoleteSdkInt"
+        severity="warning"
+        message="Unnecessary; SDK_INT is always >= 31">
+        <fix-replace
+            description="Delete tools:targetApi"
+            replacement="">
+            <range
+                file="${:app*debug*sourceProvider*0*manifest*0}"
+                startOffset="866"
+                endOffset="886"/>
+        </fix-replace>
+        <location
+            file="${:app*debug*sourceProvider*0*manifest*0}"
+            line="19"
+            column="9"
+            startOffset="866"
+            endLine="19"
+            endColumn="29"
+            endOffset="886"/>
+        <map>
+            <condition minGE="ffffffffc0000000"/>
+        </map>
+    </incident>
+
+    <incident
+        id="PermissionImpliesUnsupportedChromeOsHardware"
+        severity="error"
+        message="Permission exists without corresponding hardware `&lt;uses-feature android:name=&quot;android.hardware.telephony&quot; required=&quot;false&quot;>` tag">
+        <fix-data featureName="android.hardware.telephony"/>
+        <location
+            file="${:app*debug*sourceProvider*0*manifest*0}"
+            line="7"
+            column="6"
+            startOffset="314"
+            endLine="7"
+            endColumn="21"
+            endOffset="329"/>
+        <map>
+            <condition library="false"/>
+        </map>
+    </incident>
+
+    <incident
+        id="VectorRaster"
+        severity="warning"
+        message="">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/drawable/ic_launcher.xml"
+            line="7"
+            column="19"
+            startOffset="238"
+            endLine="7"
+            endColumn="39"
+            endOffset="258"/>
+        <map>
+            <entry
+                name="folderVersion"
+                int="-1"/>
+            <entry
+                name="containsFillType"
+                boolean="false"/>
+            <entry
+                name="message"
+                string="Resource references will not work correctly in images generated for this vector icon for API &lt; %1$d; check generated icon to make sure it looks acceptable"/>
+            <entry
+                name="containsGradient"
+                boolean="false"/>
+        </map>
+    </incident>
+
+    <incident
+        id="VectorRaster"
+        severity="warning"
+        message="">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/drawable/ic_launcher.xml"
+            line="9"
+            column="28"
+            startOffset="298"
+            endLine="9"
+            endColumn="48"
+            endOffset="318"/>
+        <map>
+            <entry
+                name="folderVersion"
+                int="-1"/>
+            <entry
+                name="containsFillType"
+                boolean="false"/>
+            <entry
+                name="message"
+                string="Resource references will not work correctly in images generated for this vector icon for API &lt; %1$d; check generated icon to make sure it looks acceptable"/>
+            <entry
+                name="containsGradient"
+                boolean="false"/>
+        </map>
+    </incident>
+
+    <incident
+        id="ObsoleteSdkInt"
+        severity="warning"
+        message="Unnecessary; SDK_INT is always >= 21">
+        <fix-replace
+            description="Delete tools:targetApi"
+            replacement="">
+            <range
+                file="${:app*debug*sourceProvider*0*resDir*0}/values/themes.xml"
+                startOffset="578"
+                endOffset="597"/>
+        </fix-replace>
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/values/themes.xml"
+            line="10"
+            column="45"
+            startOffset="578"
+            endLine="10"
+            endColumn="64"
+            endOffset="597"/>
+        <map>
+            <condition minGE="fffffffffff00000"/>
+        </map>
+    </incident>
+
+    <incident
+        id="ObsoleteSdkInt"
+        severity="warning"
+        message="Unnecessary; SDK_INT is always >= 22">
+        <fix-replace
+            description="Delete @RequiresApi"
+            replacement="">
+            <range
+                file="${:app*debug*sourceProvider*0*javaDir*0}/com/esimswitcher/ESIMManager.kt"
+                startOffset="2207"
+                endOffset="2253"/>
+        </fix-replace>
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/esimswitcher/ESIMManager.kt"
+            line="53"
+            column="5"
+            startOffset="2207"
+            endLine="53"
+            endColumn="51"
+            endOffset="2253"/>
+        <map>
+            <condition minGE="ffffffffffe00000"/>
+        </map>
+    </incident>
+
+    <incident
+        id="MissingPermission"
+        severity="error"
+        message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`">
+        <fix-data missing="android.permission.READ_PHONE_STATE" requirement="android.permission.READ_PHONE_STATE"/>
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/esimswitcher/ESIMManager.kt"
+            line="56"
+            column="46"
+            startOffset="2409"
+            endLine="56"
+            endColumn="92"
+            endOffset="2455"/>
+    </incident>
+
+    <incident
+        id="MissingPermission"
+        severity="error"
+        message="">
+        <fix-data missing="android.permission.WRITE_EMBEDDED_SUBSCRIPTIONS" message="Missing permissions required by SubscriptionManager.switchToSubscription: %1$s" lastApi="2147483647"/>
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/esimswitcher/ESIMManager.kt"
+            line="79"
+            column="21"
+            startOffset="3393"
+            endLine="82"
+            endColumn="22"
+            endOffset="3542"/>
+        <map>
+            <entry
+                name="requirement"
+                string="android.permission.WRITE_EMBEDDED_SUBSCRIPTIONS"/>
+            <entry
+                name="message"
+                string="Missing permissions required by SubscriptionManager.switchToSubscription: %1$s"/>
+        </map>
+    </incident>
+
+</incidents>

@@ -1,0 +1,4 @@
+#Thu Sep 18 23:27:04 UTC 2025
+base.0=/home/geofnoakes/code/eSIM_switcher/app/build/intermediates/dex/release/mergeDexRelease/classes.dex
+renamed.0=classes.dex
+path.0=classes.dex

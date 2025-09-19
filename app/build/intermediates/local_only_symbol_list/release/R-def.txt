@@ -1,0 +1,37 @@
+R_DEF: Internal format may change without notice
+local
+color active_profile
+color black
+color inactive_profile
+color purple_200
+color purple_500
+color purple_700
+color teal_200
+color teal_700
+color white
+drawable ic_launcher
+id activeStatusText
+id carrierNameText
+id emptyStateText
+id profileIdText
+id profileNameText
+id profilesRecyclerView
+id refreshButton
+id switchButton
+id titleText
+layout activity_main
+layout item_esim_profile
+string active_profile
+string app_name
+string available_profiles
+string no
+string no_profiles_found
+string permission_required
+string profile_switched
+string switch_confirmation
+string switch_failed
+string switch_profile
+string yes
+style Theme.ESIMSwitcher
+xml backup_rules
+xml data_extraction_rules

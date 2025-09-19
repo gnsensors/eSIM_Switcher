@@ -1,0 +1,10 @@
+[
+    {
+        "merged": "com.esimswitcher.app-mergeDebugResources-34:/layout/activity_main.xml",
+        "source": "com.esimswitcher.app-main-37:/layout/activity_main.xml"
+    },
+    {
+        "merged": "com.esimswitcher.app-mergeDebugResources-34:/layout/item_esim_profile.xml",
+        "source": "com.esimswitcher.app-main-37:/layout/item_esim_profile.xml"
+    }
+]

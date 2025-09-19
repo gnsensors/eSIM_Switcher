@@ -1,6 +1,8 @@
 package com.esimswitcher
 
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.telephony.SubscriptionInfo
 import android.telephony.SubscriptionManager
@@ -22,7 +24,7 @@ class ESIMManager {
                 val subscriptionManager = context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as SubscriptionManager
                 val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
                 
-                val subscriptionInfos = subscriptionManager.availableSubscriptionInfoList ?: emptyList()
+                val subscriptionInfos = subscriptionManager.activeSubscriptionInfoList ?: emptyList<SubscriptionInfo>()
                 val activeSubscriptionId = getActiveSubscriptionId(subscriptionManager)
                 
                 for (subscriptionInfo in subscriptionInfos) {
@@ -61,18 +63,26 @@ class ESIMManager {
     
     fun switchToProfile(context: Context, profile: ESIMProfile, callback: (Boolean) -> Unit) {
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val subscriptionManager = context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as SubscriptionManager
                 
-                val result = subscriptionManager.switchToSubscription(
-                    profile.subscriptionId,
-                    null,
-                    context.mainExecutor
-                ) { resultCode ->
-                    callback(resultCode == TelephonyManager.SET_OPPORTUNISTIC_SUB_SUCCESS)
-                }
+                // Create a PendingIntent for the callback
+                val intent = Intent()
+                val pendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    0,
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
                 
-                if (!result) {
+                try {
+                    subscriptionManager.switchToSubscription(
+                        profile.subscriptionId,
+                        pendingIntent
+                    )
+                    callback(true)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to switch subscription", e)
                     callback(false)
                 }
             } else {
