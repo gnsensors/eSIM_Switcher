@@ -95,7 +95,7 @@ class MainActivity : AppCompatActivity() {
         
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("Switch eSIM Profile")
-            .setMessage("Switch to ${profile.displayName}?")
+            .setMessage("Go to SIM settings to switch to ${profile.displayName}?")
             .setPositiveButton("Yes") { _, _ ->
                 switchProfile(profile)
             }
@@ -104,48 +104,41 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun switchProfile(profile: ESIMProfile) {
-        viewModel.switchProfile(this, profile) { success ->
-            runOnUiThread {
-                if (success) {
-                    Toast.makeText(this, getString(R.string.profile_switched), Toast.LENGTH_SHORT).show()
-                    loadProfiles()
-                } else {
-                    // Show detailed error message with manual steps
-                    androidx.appcompat.app.AlertDialog.Builder(this)
-                        .setTitle("eSIM Switch Failed")
-                        .setMessage("Automatic switching failed. Please enable the eSIM manually:\n\n" +
-                                "1. Go to Settings\n" +
-                                "2. Network & Internet → SIMs\n" +
-                                "3. Tap '${profile.displayName}'\n" +
-                                "4. Turn on 'Use SIM'\n\n" +
-                                "This limitation is due to Android security restrictions.")
-                        .setPositiveButton("Open SIM Settings") { _, _ ->
-                            try {
-                                // Try to open the SIMs page directly (Android 10+)
-                                val intent = android.content.Intent(android.provider.Settings.ACTION_NETWORK_OPERATOR_SETTINGS)
-                                intent.flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
-                                startActivity(intent)
-                            } catch (e: Exception) {
-                                try {
-                                    // Fallback to mobile network settings
-                                    val intent = android.content.Intent("android.settings.WIRELESS_SETTINGS")
-                                    intent.flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
-                                    startActivity(intent)
-                                } catch (e2: Exception) {
-                                    try {
-                                        // Final fallback to main network settings
-                                        val intent = android.content.Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS)
-                                        startActivity(intent)
-                                    } catch (e3: Exception) {
-                                        // Last resort - main settings
-                                        val intent = android.content.Intent(android.provider.Settings.ACTION_SETTINGS)
-                                        startActivity(intent)
-                                    }
-                                }
-                            }
-                        }
-                        .setNegativeButton("Cancel", null)
-                        .show()
+        // Skip automatic switching - go directly to SIM settings
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Switch to ${profile.displayName}")
+            .setMessage("Tap 'Go to SIM Settings' to switch to ${profile.displayName}:\n\n" +
+                    "1. Find '${profile.displayName}' in the list\n" +
+                    "2. Tap it and turn on 'Use SIM'\n" +
+                    "3. Turn off the current active SIM if needed")
+            .setPositiveButton("Go to SIM Settings") { _, _ ->
+                openSIMSettings()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+    
+    private fun openSIMSettings() {
+        try {
+            // Try to open the SIMs page directly (Android 10+)
+            val intent = android.content.Intent(android.provider.Settings.ACTION_NETWORK_OPERATOR_SETTINGS)
+            intent.flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+            startActivity(intent)
+        } catch (e: Exception) {
+            try {
+                // Fallback to mobile network settings
+                val intent = android.content.Intent("android.settings.WIRELESS_SETTINGS")
+                intent.flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                startActivity(intent)
+            } catch (e2: Exception) {
+                try {
+                    // Final fallback to main network settings
+                    val intent = android.content.Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS)
+                    startActivity(intent)
+                } catch (e3: Exception) {
+                    // Last resort - main settings
+                    val intent = android.content.Intent(android.provider.Settings.ACTION_SETTINGS)
+                    startActivity(intent)
                 }
             }
         }
