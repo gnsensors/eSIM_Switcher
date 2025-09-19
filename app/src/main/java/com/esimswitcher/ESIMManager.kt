@@ -313,6 +313,12 @@ class ESIMManager {
                 val currentActiveId = getActiveSubscriptionId(subscriptionManager)
                 val success = currentActiveId == profile.subscriptionId
                 Log.d(TAG, "Enable subscription result: currentActive=$currentActiveId, target=${profile.subscriptionId}, success=$success")
+                
+                if (!success) {
+                    Log.i(TAG, "Automatic eSIM switching failed. User intervention required.")
+                    Log.i(TAG, "To switch to ${profile.displayName}: Settings → Network & Internet → SIMs → ${profile.displayName} → Turn on 'Use SIM'")
+                }
+                
                 callback(success)
             }, 4000) // Wait 4 seconds for enable + switch to complete
             

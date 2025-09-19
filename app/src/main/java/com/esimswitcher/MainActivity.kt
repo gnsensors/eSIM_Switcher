@@ -110,7 +110,26 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(this, getString(R.string.profile_switched), Toast.LENGTH_SHORT).show()
                     loadProfiles()
                 } else {
-                    Toast.makeText(this, getString(R.string.switch_failed), Toast.LENGTH_SHORT).show()
+                    // Show detailed error message with manual steps
+                    androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle("eSIM Switch Failed")
+                        .setMessage("Automatic switching failed. Please enable the eSIM manually:\n\n" +
+                                "1. Go to Settings\n" +
+                                "2. Network & Internet → SIMs\n" +
+                                "3. Tap '${profile.displayName}'\n" +
+                                "4. Turn on 'Use SIM'\n\n" +
+                                "This limitation is due to Android security restrictions.")
+                        .setPositiveButton("Open Settings") { _, _ ->
+                            try {
+                                val intent = android.content.Intent(android.provider.Settings.ACTION_NETWORK_OPERATOR_SETTINGS)
+                                startActivity(intent)
+                            } catch (e: Exception) {
+                                val intent = android.content.Intent(android.provider.Settings.ACTION_SETTINGS)
+                                startActivity(intent)
+                            }
+                        }
+                        .setNegativeButton("Cancel", null)
+                        .show()
                 }
             }
         }
